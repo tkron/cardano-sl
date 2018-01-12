@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Wallet history
 
@@ -18,13 +18,14 @@ import qualified Data.Map.Strict            as Map
 import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (POSIXTime, getPOSIXTime)
 import           Formatting                 (build, sformat, stext, (%))
+import           Serokell.Util              (sec)
 import           Serokell.Util              (listJson, listJsonIndent)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core                   (ChainDifficulty, timestampToPosix, Address)
+import           Pos.Core                   (Address, ChainDifficulty, timestampToPosix)
 import           Pos.Txp.Core.Types         (TxId, txOutAddress)
 import           Pos.Util.LogSafe           (logInfoS)
 import           Pos.Util.Servant           (encodeCType)
@@ -32,9 +33,11 @@ import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficul
                                              networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
                                              CTxMeta (..), CWAddressMeta (..),
-                                             ScrollLimit, ScrollOffset, Wal, mkCTx)
+                                             ScrollLimit, ScrollOffset, SinceTime, Wal,
+                                             mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdToAddrs, convertCIdToAddr)
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdToAddr,
+                                             convertCIdToAddrs)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
 import           Pos.Wallet.Web.State       (AddressInfo (..), AddressLookupMode (Ever),
                                              WalletDB, WalletSnapshot, addOnlyNewTxMetas,
@@ -134,10 +137,11 @@ getHistoryLimited
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
+    -> Maybe SinceTime
     -> Maybe ScrollOffset
     -> Maybe ScrollLimit
     -> m ([CTx], Word)
-getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
+getHistoryLimited mCWalId mAccId mAddrId mSince mSkip mLimit = do
     logDebug "getHistoryLimited: started"
     db <- askWalletDB
     ws <- getWalletSnapshot db
@@ -155,8 +159,12 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
     curTime <- liftIO getPOSIXTime
     let getTxTimestamp entry@THEntry{..} =
             (entry,) . maybe curTime ctmDate $ getTxMeta ws cWalId (encodeCType _thTxId)
-        txsWithTime = map getTxTimestamp (Map.elems unsortedThs)
-        !sortedTxh = forceList $ sortByTime txsWithTime
+    let txsWithTime = map getTxTimestamp (Map.elems unsortedThs)
+    let sinceMicroseconds = sec $ maybe 0 fromIntegral mSince
+    let sincePOSIX = timestampToPosix $ fromIntegral sinceMicroseconds
+    let sinceTxsWithTime = filter ((> sincePOSIX) . snd) txsWithTime
+
+    let !sortedTxh = forceList $ sortByTime sinceTxsWithTime
     logDebug "getHistoryLimited: sorted transactions"
 
     let respEntries = applySkipLimit sortedTxh
