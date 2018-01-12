@@ -50,7 +50,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CWalletMeta (..), Wal, addrMetaToAccount,
                                              encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddr)
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdToAddr)
 import           Pos.Wallet.Web.State       (WalletSnapshot, AddressLookupMode (Existing), AddressInfo (..),
                                              CustomAddressType (ChangeAddr, UsedAddr),
                                              askWalletDB,
@@ -94,7 +94,7 @@ getWAddressBalanceWithMod
     -> m Coin
 getWAddressBalanceWithMod ws accMod addr =
     getBalanceWithMod ws accMod
-        <$> convertCIdTOAddr (cwamId addr)
+        <$> convertCIdToAddr (cwamId addr)
 
 -- BE CAREFUL: this function has complexity O(number of used and change addresses)
 getWAddress
