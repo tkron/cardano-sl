@@ -106,7 +106,7 @@ addrMetaToAccount CWAddressMeta{..} = AccountId
 -- | Return counts of negative and positive votes
 countVotes :: StakeholderVotes -> (Int, Int)
 countVotes = foldl' counter (0, 0)
-  where counter (n, m) vote = if isPositiveVote vote
+  where counter vote (n, m) = if isPositiveVote vote
                               then (n + 1, m)
                               else (n, m + 1)
 

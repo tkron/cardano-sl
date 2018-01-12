@@ -203,7 +203,7 @@ issuersComputationDo epochId = do
     issuersStakes <- foldM putIsStake mempty issuers
     putIssuersStakes epochId issuersStakes
   where
-    unionHSs = foldl' (flip HS.union) mempty
+    unionHSs = foldl' HS.union mempty
     putIsStake :: IssuersStakes -> StakeholderId -> m IssuersStakes
     putIsStake hm id = GS.getRealStake id >>= \case
         Nothing ->

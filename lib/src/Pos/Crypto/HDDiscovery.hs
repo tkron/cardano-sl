@@ -19,10 +19,11 @@ import           Pos.Txp.DB (UtxoIter)
 
 discoverHDAddress :: MonadDBRead m => HDPassphrase -> m [(Address, [Word32])]
 discoverHDAddress walletPassphrase =
-    safeHead <$> discoverHDAddresses [walletPassphrase]
+    singletonHead <$> discoverHDAddresses [walletPassphrase]
   where
-    safeHead [x] = x
-    safeHead _   = []
+    singletonHead :: [[a]] -> [a]
+    singletonHead [x] = x
+    singletonHead _   = []
 
 discoverHDAddresses :: MonadDBRead m => [HDPassphrase] -> m [[(Address, [Word32])]]
 discoverHDAddresses walletPassphrases =

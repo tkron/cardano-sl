@@ -4,7 +4,7 @@ module Test.Pos.Util.ModifierSpec
        ( spec
        ) where
 
-import           Universum
+import           Universum hiding (keys)
 
 import qualified Data.HashMap.Strict as HM
 import           Test.Hspec (Spec, describe)
@@ -159,7 +159,7 @@ allPairsAreInAssocList hm mapMod =
 
 mapModifierToHashMap :: (Eq k, Eq v, Hashable k) => [(k, v)] -> Bool
 mapModifierToHashMap inserts =
-    let newMod = foldl' (flip (uncurry Core.insert)) mempty inserts
+    let newMod = foldl' (uncurry Core.insert) mempty inserts
         insMap = Core.insertionsMap newMod
     in insMap == (HM.fromList inserts)
 

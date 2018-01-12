@@ -4,7 +4,7 @@ module Test.Pos.Ssc.VssCertDataSpec
        ( spec
        ) where
 
-import           Universum hiding (empty, filter)
+import           Universum hiding (empty, filter, keys)
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
@@ -86,7 +86,7 @@ instance HasConfiguration => Arbitrary CorrectVssCertData where
         let notExpiredGen  = arbitrary `suchThat` (`expiresAfter` lkeos)
         vssCertificates   <- vectorOf @VssCertificate certificatesToAdd notExpiredGen
         let dataUpdaters   = map insert vssCertificates
-        pure $ foldl' (&) (empty {lastKnownEoS = lkeos}) dataUpdaters
+        pure $ foldl' ($) (empty {lastKnownEoS = lkeos}) dataUpdaters
 
 ----------------------------------------------------------------------------
 -- Properties for VssCertData
@@ -194,7 +194,7 @@ instance HasConfiguration => Arbitrary RollbackData where
 verifyRollback
     :: HasConfiguration => RollbackData -> Gen Property
 verifyRollback (Rollback oldSscGlobalState rollbackEoS vssCerts) = do
-    let certAdder vcd = foldl' (flip insert) vcd vssCerts
+    let certAdder vcd = foldl' insert vcd vssCerts
         newSscGlobalState@(SscGlobalState _ _ _ newVssCertData) =
             oldSscGlobalState & sgsVssCertificates %~ certAdder
     (_, SscGlobalState _ _ _ rolledVssCertData, _) <-

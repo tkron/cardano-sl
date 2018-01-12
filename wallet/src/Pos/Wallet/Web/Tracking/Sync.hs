@@ -39,13 +39,13 @@ module Pos.Wallet.Web.Tracking.Sync
        ) where
 
 import           Universum
-import           Unsafe (unsafeLast)
 
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import qualified Data.DList as DL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
@@ -184,7 +184,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) 
                 -- rollback can't occur more then @blkSecurityParam@ blocks,
                 -- so we can sync wallet and GState without the block lock
                 -- to avoid blocking of blocks verification/application.
-                bh <- unsafeLast . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
+                bh <- List.last . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
                 logInfo $
                     sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
                     (headerHash bh)
@@ -269,7 +269,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                      -- if the application was interrupted during blocks application.
                      blunds <- getNewestFirst <$>
                          GS.loadBlundsWhile (\b -> getBlockHeader b /= gstateH) (headerHash wHeader)
-                     pure $ foldl' (\r b -> r <> rollbackBlock dbUsed b) mempty blunds
+                     pure $ foldl' (\b r -> r <> rollbackBlock dbUsed b) mempty blunds
                | otherwise -> mempty <$ logInfoS (sformat ("Wallet "%build%" is already synced") wAddr)
 
     whenNothing_ wTipHeader $ do
@@ -324,8 +324,8 @@ trackingApplyTxs
 trackingApplyTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs getPtxBlkInfo txs =
     foldl' applyTx mempty txs
   where
-    applyTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader) -> CAccModifier
-    applyTx CAccModifier{..} (tx, undo, blkHeader) = do
+    applyTx :: (TxAux, TxUndo, BlockHeader) -> CAccModifier -> CAccModifier
+    applyTx (tx, undo, blkHeader) CAccModifier{..} = do
         let hh = headerHash blkHeader
             hhs = repeat hh
             wh@(WithHash _ txId) = withHash (taTx tx)
@@ -373,8 +373,8 @@ trackingRollbackTxs
 trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs txs =
     foldl' rollbackTx mempty txs
   where
-    rollbackTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader) -> CAccModifier
-    rollbackTx CAccModifier{..} (tx, undo, blkHeader) = do
+    rollbackTx :: (TxAux, TxUndo, BlockHeader) -> CAccModifier -> CAccModifier
+    rollbackTx (tx, undo, blkHeader) CAccModifier{..} = do
         let wh@(WithHash _ txId) = withHash (taTx tx)
             hh = headerHash blkHeader
             hhs = repeat hh
@@ -424,7 +424,7 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.insertIntoHistoryCache wid addedHistory
     -- resubmitting worker can change ptx in db nonatomically, but
     -- tracker has priority over the resubmiter, thus do not use CAS here
-    forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
+    forM_ (DL.toList camAddedPtxCandidates) $ \(txid, ptxBlkInfo) ->
         WS.setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
     WS.setWalletSyncTip wid newTip
 
@@ -440,7 +440,7 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
     mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
     WS.updateWalletBalancesAndUtxo camUtxo
-    forM_ camDeletedPtxCandidates $ \(txid, poolInfo) -> do
+    forM_ (DL.toList camDeletedPtxCandidates) $ \(txid, poolInfo) -> do
         curSlot <- getCurrentSlotInaccurate
         WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
         WS.setPtxCondition wid txid (PtxApplying poolInfo)

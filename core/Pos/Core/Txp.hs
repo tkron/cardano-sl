@@ -88,7 +88,7 @@ data TxInWitness
     | RedeemWitness { twRedeemKey :: !RedeemPublicKey
                     , twRedeemSig :: !(RedeemSignature TxSigData) }
     | UnknownWitnessType !Word8 !ByteString
-    deriving (Eq, Show, Generic, Typeable)
+    deriving (Eq, Ord, Show, Generic, Typeable)
 
 instance Hashable TxInWitness
 
@@ -189,7 +189,7 @@ makeLenses ''Tx
 data TxAux = TxAux
     { taTx      :: !Tx
     , taWitness :: !TxWitness
-    } deriving (Generic, Show, Eq)
+    } deriving (Generic, Show, Eq, Ord)
 
 instance Hashable Tx
 

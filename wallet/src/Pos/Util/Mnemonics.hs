@@ -129,7 +129,7 @@ indicesToBS is = do
     shift_width = if r == 0 then 0 else 8 - r
     bl = if r == 0 then q else q + 1   -- length of resulting ByteString
     pad bs = BS.append (BS.replicate (bl - BS.length bs) 0x00) bs
-    f acc x = (acc `shiftL` 11) + fromIntegral x
+    f x acc = (acc `shiftL` 11) + fromIntegral x
 
 bsToIndices :: ByteString -> [Int]
 bsToIndices bs = reverse . go q $ bsToInteger bs `shiftR` r

@@ -123,7 +123,8 @@ library
 
 executable cardano-auxx
   main-is:             Main.hs
-  build-depends:       cardano-sl
+  build-depends:       base
+                     , cardano-sl
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-infra

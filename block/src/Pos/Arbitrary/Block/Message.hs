@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
 
 module Pos.Arbitrary.Block.Message
        (
@@ -6,10 +7,10 @@ module Pos.Arbitrary.Block.Message
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..))
 import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
-import           Pos.Arbitrary.Block ()
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Block.Network.Types as T
 import           Pos.Core (HasConfiguration)

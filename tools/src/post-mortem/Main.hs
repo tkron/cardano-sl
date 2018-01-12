@@ -2,7 +2,7 @@
 
 import           Universum
 
-import           Data.List (last)
+import qualified Data.List as List (last)
 import qualified Data.Map.Strict as M
 import           System.FilePath
 import           System.IO (hPutStrLn)
@@ -119,4 +119,4 @@ getName template name ext =
     in  dir </> base' <.> ext
 
 extractName :: FilePath -> String
-extractName = last . splitDirectories
+extractName = List.last . splitDirectories

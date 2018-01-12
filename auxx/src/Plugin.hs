@@ -92,7 +92,7 @@ runWalletCmd mHasAuxxMode mDiffusion line = do
     liftIO $ exitImmediately ExitSuccess
 #endif
   where
-    printAction = putText
+    printAction = putTextLn
 
 runCmd ::
        ( HasCompileInfo

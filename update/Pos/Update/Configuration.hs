@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE Rank2Types      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -24,7 +25,11 @@ import qualified Data.Text as T
 import           Distribution.System (buildArch, buildOS)
 import           Language.Haskell.TH (runIO)
 import qualified Language.Haskell.TH.Syntax as TH (lift)
-import           Serokell.Util.ANSI  (Color (Red, Blue), colorize)
+import           Serokell.Util.ANSI (Color (Blue, Red))
+#ifndef mingw32_HOST_OS
+import           Serokell.Util.ANSI (colorize)
+#endif
+
 
 -- For FromJSON instances.
 import           Pos.Aeson.Core ()
@@ -91,7 +96,11 @@ currentSystemTag :: SystemTag
 currentSystemTag =
     $(do let st :: Either Text SystemTag
              st = mkSystemTag (toText (osHelper buildOS ++ archHelper buildArch))
+#ifdef mingw32_HOST_OS
+             color _ s = "\n" <> s <> "\n"
+#else
              color c s = "\n" <> colorize c s <> "\n"
+#endif
          case st of Left e -> error . color Red . T.concat $
                                   ["Current system tag could not be calculated: ", e]
                     Right tag -> do runIO . putStrLn . color Blue . T.concat $

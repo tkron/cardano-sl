@@ -20,8 +20,8 @@ getData m = map normalize pairs
     times :: [Timestamp]
     times = sort $ mapMaybe snd $ M.toList m
 
-    step :: (Int, [(Timestamp, Int)]) -> Timestamp -> (Int, [(Timestamp, Int)])
-    step (!n, xs) ts = let n' = n + 1
+    step :: Timestamp -> (Int, [(Timestamp, Int)]) -> (Int, [(Timestamp, Int)])
+    step ts (!n, xs) = let n' = n + 1
                            x  = (ts, n')
                        in  (n', x : xs)
 

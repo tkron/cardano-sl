@@ -16,7 +16,6 @@ module Pos.DHT.Real.Real
        ) where
 
 
-import           Nub (ordNub)
 import           Universum
 
 import           Control.Exception.Safe (try)
@@ -133,13 +132,13 @@ rejoinNetwork
     => KademliaDHTInstance
     -> m ()
 rejoinNetwork inst = withKademliaLogger $ do
-    let init = kdiInitialPeers inst
+    let initialPeers = kdiInitialPeers inst
     peers <- atomically $ kademliaGetKnownPeers inst
     logDebug $ sformat ("rejoinNetwork: peers "%listJson) peers
     when (length peers < neighborsSendThreshold) $ do
         logWarning $ sformat ("Not enough peers: "%int%", threshold is "%int)
                              (length peers) (neighborsSendThreshold :: Int)
-        kademliaJoinNetworkNoThrow inst init
+        kademliaJoinNetworkNoThrow inst initialPeers
 
 withKademliaLogger
     :: ( HasLoggerName m )

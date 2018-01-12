@@ -145,9 +145,9 @@ deleteAndInsertIMM
     => [a] -> [a] -> IndexedMapModifier a -> IndexedMapModifier a
 deleteAndInsertIMM dels ins mapModifier =
     -- Insert CWAddressMeta coressponding to outputs of tx.
-    (\mm -> foldl' (flip insertIMM) mm ins) $
+    (\mm -> foldl' insertIMM mm ins) $
     -- Delete CWAddressMeta coressponding to inputs of tx.
-    foldl' (flip deleteIMM) mapModifier dels
+    foldl' deleteIMM mapModifier dels
 
 deleteAndInsertVM :: (Eq a, Hashable a) => [a] -> [a] -> VoidModifier a -> VoidModifier a
 deleteAndInsertVM dels ins mapModifier = deleteAndInsertMM dels (zip ins $ repeat ()) mapModifier
@@ -159,8 +159,8 @@ deleteAndInsertMM dels ins mapModifier =
     -- Delete CWAddressMeta coressponding to inputs of tx (1)
     foldl' deleteAcc mapModifier dels
   where
-    insertAcc :: (Hashable k, Eq k) => MapModifier k v -> (k, v) -> MapModifier k v
-    insertAcc modifier (k, v) = MM.insert k v modifier
+    insertAcc :: (Hashable k, Eq k) => (k, v) -> MapModifier k v -> MapModifier k v
+    insertAcc (k, v) = MM.insert k v
 
-    deleteAcc :: (Hashable k, Eq k) => MapModifier k v -> k -> MapModifier k v
-    deleteAcc = flip deleteNotDeep
+    deleteAcc :: (Hashable k, Eq k) => k -> MapModifier k v -> MapModifier k v
+    deleteAcc = deleteNotDeep

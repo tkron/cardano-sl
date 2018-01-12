@@ -65,7 +65,7 @@ stakeholderIdParser = do
 
 attackTargetParser :: P.Parser AttackTarget
 attackTargetParser =
-    (PubKeyAddressTarget <$> try stakeholderIdParser) <|>
+    (PubKeyAddressTarget <$> Text.Parsec.try stakeholderIdParser) <|>
     (NetworkAddressTarget <$> addrParser)
 
 -- | Default logger config. Will be used if `--log-config` argument is

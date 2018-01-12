@@ -109,5 +109,5 @@ average = f . foldl' g (0, 0)
         | c == 0    = 0
         | otherwise = fromIntegral s / fromIntegral c
 
-    g :: (Integer, Int) -> Integer -> (Integer, Int)
-    g (s, c) x = (s + x, c + 1)
+    g :: Integer -> (Integer, Int) -> (Integer, Int)
+    g x (!s, !c) = (s + x, c + 1)

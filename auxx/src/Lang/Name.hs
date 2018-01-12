@@ -5,8 +5,9 @@ module Lang.Name
        , unsafeMkName
        ) where
 
-import           Prelude (Show (..))
 import           Universum
+
+import           Prelude (Show (..))
 
 import           Data.Char (isAlpha)
 import           Data.Coerce (coerce)
@@ -15,10 +16,11 @@ import           Data.List.Split (splitWhen)
 import qualified Data.Text.Buildable as Buildable
 import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
 import           Test.QuickCheck.Gen (suchThat)
+import           Test.QuickCheck.Instances ()
 
 -- | Invariant: @isAlpha . getLetter = const True@
 newtype Letter = Letter { getLetter :: Char }
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Generic)
 
 unsafeMkLetter :: Char -> Letter
 unsafeMkLetter = Letter

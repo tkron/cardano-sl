@@ -25,7 +25,7 @@ import           Data.Default (def)
 import           Data.Function (on)
 import           Data.List (groupBy)
 import qualified Data.List.NonEmpty as NE
-import           Data.Map (fromList, fromListWith, keys, unions)
+import           Data.Map (fromList, fromListWith, unions)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable, choose, counterexample,
                                   forAll, generate, property, suchThat)
@@ -291,10 +291,10 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
             mainBlocks ^. _2
           where
             epochBlocksCalculation
-                :: (BlockHeader, [MainBlock])
-                -> Word
+                :: Word
                 -> (BlockHeader, [MainBlock])
-            epochBlocksCalculation (previousBlockHeader, mainBlocks) currentBlockNumber = do
+                -> (BlockHeader, [MainBlock])
+            epochBlocksCalculation currentBlockNumber (previousBlockHeader, mainBlocks) = do
 
                 let newBlock :: MainBlock
                     newBlock = generateBlocks previousBlockHeader currentBlockNumber
@@ -382,4 +382,3 @@ produceSecretKeys blocksNumber = liftIO $ secretKeys
 -- | TODO: Remove it as soon as ^ is exposed
 secretKeyToAddress :: SecretKey -> Address
 secretKeyToAddress = makePubKeyAddressBoot . toPublic
-

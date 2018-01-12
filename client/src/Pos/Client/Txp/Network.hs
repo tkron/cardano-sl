@@ -78,7 +78,7 @@ prepareRedemptionTx
 prepareRedemptionTx rsk output = do
     let redeemAddress = makeRedeemAddress $ redeemToPublic rsk
     utxo <- getOwnUtxo redeemAddress
-    let addCoin c = unsafeAddCoin c . txOutValue . toaOut
+    let addCoin txAux c = unsafeAddCoin c $ txOutValue $ toaOut txAux
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
         txOuts = one $
             TxOutAux {toaOut = TxOut output redeemBalance}

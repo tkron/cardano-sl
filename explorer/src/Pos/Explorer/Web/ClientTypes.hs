@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
@@ -220,7 +221,7 @@ toBlockEntry (blk, Undo{..}) = do
         cbeTxNum      = fromIntegral $ length txs
         addOutCoins c = unsafeAddCoin c . totalTxOutMoney
         totalRecvCoin = unsafeIntegerToCoin . sumCoins <$> traverse totalTxInMoney undoTx
-        totalSentCoin = foldl' addOutCoins (mkCoin 0) txs
+        totalSentCoin = foldl' (flip addOutCoins) (mkCoin 0) txs
         cbeTotalSent  = mkCCoin $ totalSentCoin
         cbeSize       = fromIntegral $ biSize blk
         cbeFees       = mkCCoinMB $ (`unsafeSubCoin` totalSentCoin) <$> totalRecvCoin

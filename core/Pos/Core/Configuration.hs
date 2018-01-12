@@ -78,7 +78,6 @@ withCoreConfigurations ::
        ( MonadThrow m
        , WithLogger m
        , MonadIO m
-       , Canonical.FromJSON (Either SchemaError) GenesisData
        )
     => CoreConfiguration
     -> FilePath

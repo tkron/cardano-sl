@@ -56,7 +56,7 @@ blockHeadersF = Fold step MS.empty id
         _                          -> m
 
 blockChain :: SMap BlockHash BlockHeader -> Set BlockHash
-blockChain m = S.fromList $ maybe [] id $ head $ sortByLengthDesc [getLongestChain h | h <- allHashes]
+blockChain m = S.fromList $ maybe [] id $ safeHead $ sortByLengthDesc [getLongestChain h | h <- allHashes]
   where
     allHashes :: [BlockHash]
     allHashes = MS.keys m
@@ -70,9 +70,9 @@ blockChain m = S.fromList $ maybe [] id $ head $ sortByLengthDesc [getLongestCha
     getSuccessors :: BlockHash -> [BlockHash]
     getSuccessors h = MS.findWithDefault [] h successors
 
-    f :: SMap BlockHash [BlockHash] -> BlockHash -> SMap BlockHash [BlockHash]
-    f s h = let BlockHeader{..} = m MS.! h
-            in  MS.alter (Just . maybe [bhHash] (bhHash :)) bhPrevBlock s
+    f :: BlockHash -> SMap BlockHash [BlockHash] -> SMap BlockHash [BlockHash]
+    f h = let BlockHeader{..} = m MS.! h
+          in  MS.alter (Just . maybe [bhHash] (bhHash :)) bhPrevBlock
 
     longestChains :: LMap Text [Text]
     longestChains = ML.fromList [(h, getLongestChain h) | h <- allHashes]
@@ -97,11 +97,11 @@ txBlocksF = Fold step MS.empty id
 
     f :: Timestamp
       -> Text
-      -> SMap Text [(Timestamp, Text)]
       -> Text
       -> SMap Text [(Timestamp, Text)]
-    f ts h m tx = let y = (ts, h)
-                  in  MS.alter (Just . maybe [y] (y :)) tx m
+      -> SMap Text [(Timestamp, Text)]
+    f ts h = let y = (ts, h)
+             in  MS.alter (Just . maybe [y] (y :))
 
 inBlockChainF :: Fold IndexedJLTimedEvent (SMap TxHash Timestamp)
 inBlockChainF = f <$> txFateF
