@@ -58,7 +58,7 @@ import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs,
                                                    getPendingAddresses, rewrapTxError,
                                                    submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
-                                                   convertCIdTOAddrs)
+                                                   convertCIdToAddrs)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
 import           Pos.Wallet.Web.State             (WalletSnapshot, askWalletDB, askWalletSnapshot,
                                                    getWalletSnapshot,
@@ -203,7 +203,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
 
-    srcAddrs <- convertCIdTOAddrs $ map cwamId addrMetas
+    srcAddrs <- convertCIdToAddrs $ map cwamId addrMetas
 
     logDebug "sendMoney: processed addrs"
 
@@ -252,7 +252,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
     let srcWalletAddrsDetector = getWalletAddrsDetector ws' Ever srcWallet
 
     logDebug "sendMoney: constructing response"
-    fst <$> constructCTx ws' srcWallet srcWalletAddrsDetector diff th
+    constructCTx ws' srcWallet srcWalletAddrsDetector diff th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =
