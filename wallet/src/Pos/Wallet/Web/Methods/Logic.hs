@@ -32,7 +32,8 @@ import           Formatting                 (build, sformat, (%))
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
-import           Pos.Core                   (Address, Coin, mkCoin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core                   (Address, Coin, mkCoin, sumCoins,
+                                             unsafeIntegerToCoin)
 import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
                                              checkPassMatches, emptyPassphrase)
 import           Pos.Txp                    (applyUtxoModToAddrCoinMap)
@@ -41,78 +42,39 @@ import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey,
                                              getSecretKeysPlain)
-import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId, findKey,
+import           Pos.Wallet.Web.Account     (AddrGenSeed, findKey, genUniqueAccountId,
                                              genUniqueAddress, getAddrIdx, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAccountInit (..), CAccountMeta (..),
-                                             CAddress (..), CCoin, CId,
-                                             CWAddressMeta (..), CWallet (..),
-                                             CWalletMeta (..), Wal, addrMetaToAccount,
-                                             encToCId, mkCCoin)
+                                             CAddress (..), CId, CWAddressMeta (..),
+                                             CWallet (..), CWalletMeta (..), Wal,
+                                             addrMetaToAccount, encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddr)
-import           Pos.Wallet.Web.State       (WalletSnapshot, AddressLookupMode (Existing), AddressInfo (..),
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddr,
+                                             convertCIdTOAddrs)
+import           Pos.Wallet.Web.State       (AddressInfo (..),
+                                             AddressLookupMode (Deleted, Ever, Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
-                                             askWalletDB,
-                                             addWAddress, createAccount, createWallet,
-                                             getAccountIds, doesAccountExist,
-                                             getWalletAddresses,
+                                             WalletSnapshot, addWAddress, askWalletDB,
+                                             askWalletSnapshot, createAccount,
+                                             createWallet, doesAccountExist,
+                                             getAccountIds, getWalletAddresses,
                                              getWalletBalancesAndUtxo,
                                              getWalletMetaIncludeUnready, getWalletPassLU,
-                                             askWalletSnapshot, getWalletSnapshot,
-                                             isCustomAddress, removeAccount,
-                                             removeHistoryCache, removeTxMetas,
-                                             removeWallet, setAccountMeta, setWalletMeta,
-                                             setWalletPassLU)
-import           Pos.Wallet.Web.Tracking     (CAccModifier (..), CachedCAccModifier,
-                                              txMempoolToModifier, sortedInsertions)
-import           Pos.Wallet.Web.Util         (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                              getWalletAccountIds, getAccountMetaOrThrow)
-
+                                             getWalletSnapshot, isCustomAddress,
+                                             removeAccount, removeHistoryCache,
+                                             removeTxMetas, removeWallet, setAccountMeta,
+                                             setWalletMeta, setWalletPassLU)
+import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifier,
+                                             immModifier, sortedInsertions,
+                                             txMempoolToModifier)
+import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
+                                             getAccountMetaOrThrow, getWalletAccountIds,
+                                             getWalletAddrMetas)
 
 ----------------------------------------------------------------------------
 -- Getters
 ----------------------------------------------------------------------------
-
-
-sumCCoin :: MonadThrow m => [CCoin] -> m CCoin
-sumCCoin ccoins = mkCCoin . unsafeIntegerToCoin . sumCoins <$> mapM decodeCTypeOrFail ccoins
-
-getBalanceWithMod :: WalletSnapshot -> CachedCAccModifier -> Address -> Coin
-getBalanceWithMod ws accMod addr =
-    fromMaybe (mkCoin 0) .
-    HM.lookup addr $
-    flip applyUtxoModToAddrCoinMap balancesAndUtxo (camUtxo accMod)
-  where
-    balancesAndUtxo = getWalletBalancesAndUtxo ws
-
-getWAddressBalanceWithMod
-    :: MonadWalletWebMode m
-    => WalletSnapshot
-    -> CachedCAccModifier
-    -> CWAddressMeta
-    -> m Coin
-getWAddressBalanceWithMod ws accMod addr =
-    getBalanceWithMod ws accMod
-        <$> convertCIdTOAddr (cwamId addr)
-
--- BE CAREFUL: this function has complexity O(number of used and change addresses)
-getWAddress
-    :: MonadWalletWebMode m
-    => WalletSnapshot
-    -> CachedCAccModifier -> CWAddressMeta -> m CAddress
-getWAddress ws cachedAccModifier cAddr = do
-    let aId = cwamId cAddr
-    balance <- getWAddressBalanceWithMod ws cachedAccModifier cAddr
-
-    let getFlag customType accessMod =
-            let checkDB = isCustomAddress ws customType (cwamId cAddr)
-                checkMempool = elem aId . map (fst . fst) . toList $
-                               MM.insertions $ accessMod cachedAccModifier
-             in checkDB || checkMempool
-        isUsed   = getFlag UsedAddr camUsed
-        isChange = getFlag ChangeAddr camChange
-    return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountMod
     :: MonadWalletWebMode m
@@ -175,11 +137,18 @@ getWalletIncludeUnready ws includeUnready cAddr = do
     meta       <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws includeUnready cAddr
     accounts   <- getAccountsIncludeUnready ws includeUnready (Just cAddr)
     let accountsNum = length accounts
-    balance    <- sumCCoin (map caAmount accounts)
+    accMod     <- txMempoolToModifier ws =<< findKey cAddr
+    balance    <- computeBalance accMod
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- maybeThrow noWallet (getWalletPassLU ws cAddr)
     pure $ CWallet cAddr meta accountsNum balance hasPass passLU
   where
+    computeBalance accMod = do
+        let waddrIds = getWalletWAddrsWithMod ws Existing accMod cAddr
+        addrIds <- convertCIdTOAddrs (map cwamId waddrIds)
+        let coins = getBalancesWithMod ws accMod addrIds
+        pure . mkCCoin . unsafeIntegerToCoin . sumCoins $ coins
+
     noWallet = RequestError $
         sformat ("No wallet with address "%build%" found") cAddr
 
@@ -332,3 +301,63 @@ changeWalletPassphrase wid oldPass newPass = do
         idx  <- RequestError "No key with such address and pass found"
                 `maybeThrow` midx
         deleteSecretKey (fromIntegral idx)
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
+
+getBalanceWithMod :: WalletSnapshot -> CachedCAccModifier -> Address -> Coin
+getBalanceWithMod ws accMod addr =
+    let balancesAndUtxo = getWalletBalancesAndUtxo ws
+    in  HM.lookupDefault (mkCoin 0) addr $
+        flip applyUtxoModToAddrCoinMap balancesAndUtxo (camUtxo accMod)
+
+getBalancesWithMod :: WalletSnapshot -> CachedCAccModifier -> [Address] -> [Coin]
+getBalancesWithMod ws accMod addrs =
+    let balancesAndUtxo = getWalletBalancesAndUtxo ws in
+    let addrCoinsMap = applyUtxoModToAddrCoinMap (camUtxo accMod) balancesAndUtxo in
+    let getBalance ad = HM.lookupDefault (mkCoin 0) ad addrCoinsMap in
+    map getBalance addrs
+
+getWAddressBalanceWithMod
+    :: MonadWalletWebMode m
+    => WalletSnapshot
+    -> CachedCAccModifier
+    -> CWAddressMeta
+    -> m Coin
+getWAddressBalanceWithMod ws accMod addr =
+    getBalanceWithMod ws accMod
+        <$> convertCIdTOAddr (cwamId addr)
+
+-- BE CAREFUL: this function has complexity O(number of used and change addresses)
+getWAddress
+    :: MonadWalletWebMode m
+    => WalletSnapshot
+    -> CachedCAccModifier
+    -> CWAddressMeta
+    -> m CAddress
+getWAddress ws cachedAccModifier cAddr = do
+    let aId = cwamId cAddr
+    balance <- getWAddressBalanceWithMod ws cachedAccModifier cAddr
+
+    let getFlag customType accessMod = do
+            let checkDB = isCustomAddress ws customType (cwamId cAddr)
+            let checkMempool = elem aId . map (fst . fst) . toList $
+                               MM.insertions $ accessMod cachedAccModifier
+            return (checkDB || checkMempool)
+    isUsed   <- getFlag UsedAddr camUsed
+    isChange <- getFlag ChangeAddr camChange
+    return $ CAddress aId (mkCCoin balance) isUsed isChange
+
+getWalletWAddrsWithMod
+    :: MonadWalletWebMode m
+    => WalletSnapshot -> AddressLookupMode -> CachedCAccModifier -> CId Wal -> [CWAddressMeta]
+getWalletWAddrsWithMod ws mode cAccMod wid =
+    let dbAddresses = getWalletAddrMetas ws mode wid
+        addrMapMod = MM.filterWithKey (\k _ -> cwamWId k == wid) $ immModifier $ camAddresses cAccMod
+    in  case mode of
+            Existing ->
+                filter (not . flip HM.member (MM.toHashMap addrMapMod)) dbAddresses ++
+                map fst (MM.insertions addrMapMod)
+            Deleted  -> dbAddresses ++ MM.deletions addrMapMod
+            Ever     -> dbAddresses ++ HM.keys (MM.toHashMap addrMapMod)
