@@ -18,11 +18,13 @@ import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Random (MonadRandom)
 import           Data.ByteArray (ByteArray, ByteArrayAccess, ScrubbedBytes)
 import           Data.Default (Default (..))
+import           Data.Function (on)
 import           Data.Text.Buildable (build)
 import qualified Data.Text.Buildable as B
 import qualified Prelude
 import           Universum
 
+import           Cardano.Crypto.Wallet.Pure as P
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Crypto.Scrypt as S
 import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..), toPublic)
@@ -31,13 +33,16 @@ import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..
 data EncryptedSecretKey = EncryptedSecretKey
     { eskPayload :: !CC.XPrv          -- ^ Secret key itself, encrypted with passphrase.
     , eskHash    :: !S.EncryptedPass  -- ^ Hash of passphrase used for key creation.
-    }
+    } deriving Eq
 
 instance Show EncryptedSecretKey where
     show _ = "<encrypted key>"
 
 instance B.Buildable EncryptedSecretKey where
     build _ = "<encrypted key>"
+
+instance Eq CC.XPrv where
+  (==) = (==) `on` CC.unXPrv
 
 newtype PassPhrase = PassPhrase ScrubbedBytes
     deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)

@@ -77,7 +77,7 @@ data WalletUserSecret = WalletUserSecret
     , _wusWalletName :: Text                -- ^ name of wallet
     , _wusAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
     , _wusAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
-    }
+    } deriving Eq
 
 makeLenses ''WalletUserSecret
 
@@ -118,7 +118,7 @@ data UserSecret = UserSecret
     , _usWallet  :: Maybe WalletUserSecret
     , _usPath    :: FilePath
     , _usLock    :: Maybe FileLock
-    }
+    } deriving Eq
 
 makeLenses ''UserSecret
 
@@ -145,7 +145,6 @@ instance Exception UserSecretDecodingError
 instance Buildable UserSecretDecodingError where
     build (UserSecretDecodingError msg) =
         "Failed to decode user secret: " <> bprint build msg
-
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath
