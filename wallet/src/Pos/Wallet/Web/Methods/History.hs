@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Wallet history
 
@@ -24,7 +24,7 @@ import           System.Wlog                (WithLogger, logDebug, logInfo, logW
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core                   (ChainDifficulty, timestampToPosix, Address)
+import           Pos.Core                   (Address, ChainDifficulty, timestampToPosix)
 import           Pos.Txp.Core.Types         (TxId, txOutAddress)
 import           Pos.Util.LogSafe           (logInfoS)
 import           Pos.Util.Servant           (encodeCType)
@@ -34,7 +34,8 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
                                              CTxMeta (..), CWAddressMeta (..),
                                              ScrollLimit, ScrollOffset, Wal, mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdToAddrs, convertCIdToAddr)
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdToAddr,
+                                             convertCIdToAddrs)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
 import           Pos.Wallet.Web.State       (AddressInfo (..), AddressLookupMode (Ever),
                                              WalletDB, WalletSnapshot, addOnlyNewTxMetas,
@@ -78,6 +79,9 @@ getFullWalletHistory db cWalId unfilteredLocalHistory = do
 
     pure (fullHistory, fromIntegral $ Map.size fullHistory)
 
+-- | Given provided accounts and optionally address, remain only transactions
+-- which relate to it (input or output of transaction belongs to one of accounts,
+-- and also matches address if given).
 getFilteredHistory
     :: MonadWalletWebMode m
     => WalletDB
@@ -150,7 +154,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
              in pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, const [accId])
     (unsortedThs, n) <- getFilteredHistory db ws cWalId accIds mAddrId
-    logDebug "getHistoryLimited: invokated getFilteredHistory"
+    logDebug "getHistoryLimited: invoked getFilteredHistory"
 
     curTime <- liftIO getPOSIXTime
     let getTxTimestamp entry@THEntry{..} =
@@ -222,6 +226,7 @@ constructCTx ws cWalId addrBelongsToWallet diff entry@THEntry{..}= do
     posixTime <- maybe (liftIO getPOSIXTime) (pure . ctmDate) $ getTxMeta ws cWalId cId
     constructCTxWithTime ws cWalId addrBelongsToWallet diff (entry, posixTime)
 
+-- | Convert 'TxHistoryEntry' with known transaction creation time to 'CTx'.
 constructCTxWithTime
     :: MonadThrow m
     => WalletSnapshot
