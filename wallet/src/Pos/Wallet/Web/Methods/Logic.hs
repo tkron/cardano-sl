@@ -133,24 +133,24 @@ getAccounts mCAddr = do
 
 getWalletIncludeUnready :: MonadWalletWebMode m
                         => WalletSnapshot -> Bool -> CId Wal -> m CWallet
-getWalletIncludeUnready ws includeUnready cAddr = do
-    meta       <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws includeUnready cAddr
-    accounts   <- getAccountsIncludeUnready ws includeUnready (Just cAddr)
+getWalletIncludeUnready ws includeUnready cWalId = do
+    meta       <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws includeUnready cWalId
+    accounts   <- getAccountsIncludeUnready ws includeUnready (Just cWalId)
     let accountsNum = length accounts
-    accMod     <- txMempoolToModifier ws =<< findKey cAddr
+    accMod     <- txMempoolToModifier ws =<< findKey cWalId
     balance    <- computeBalance accMod
-    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
-    passLU     <- maybeThrow noWallet (getWalletPassLU ws cAddr)
-    pure $ CWallet cAddr meta accountsNum balance hasPass passLU
+    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cWalId
+    passLU     <- maybeThrow noWallet (getWalletPassLU ws cWalId)
+    pure $ CWallet cWalId meta accountsNum balance hasPass passLU
   where
     computeBalance accMod = do
-        let waddrIds = getWalletWAddrsWithMod ws Existing accMod cAddr
+        let waddrIds = getWalletWAddrsWithMod ws Existing accMod cWalId
         addrIds <- convertCIdTOAddrs (map cwamId waddrIds)
         let coins = getBalancesWithMod ws accMod addrIds
         pure . mkCCoin . unsafeIntegerToCoin . sumCoins $ coins
 
     noWallet = RequestError $
-        sformat ("No wallet with address "%build%" found") cAddr
+        sformat ("No wallet with address "%build%" found") cWalId
 
 getWallet :: MonadWalletWebMode m => CId Wal -> m CWallet
 getWallet wid = do
