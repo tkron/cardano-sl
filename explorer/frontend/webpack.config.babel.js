@@ -10,7 +10,6 @@ const {
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 import NamedModulesPlugin from 'webpack/lib/NamedModulesPlugin';
 import UglifyJsPlugin from 'webpack/lib/optimize/UglifyJsPlugin';
-import GitRevisionPlugin from 'git-revision-webpack-plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import ExtractTextPlugin from 'extract-text-webpack-plugin'
 
@@ -44,7 +43,7 @@ module.exports = {
       'process.env.NODE_ENV': JSON.stringify(nodeEnv),
       '$PRODUCTION': isProd,
       '$VERSION': JSON.stringify(require('./package.json').version),
-      '$COMMIT_HASH': JSON.stringify(new GitRevisionPlugin().commithash()),
+      '$COMMIT_HASH': "0000000000000000000000000000000000000000",
     }),
     new NamedModulesPlugin(),
     new CopyWebpackPlugin([
