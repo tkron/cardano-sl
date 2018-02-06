@@ -15,12 +15,11 @@ module Pos.GState.BlockExtra
        , loadHeadersUpWhile
        , loadBlocksUpWhile
        , initGStateBlockExtra
-       , blocksSourceFrom
        ) where
 
 import           Universum
 
-import           Data.Conduit (Source, yield)
+--import           Data.Conduit (Source, yield)
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
@@ -34,7 +33,7 @@ import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..), RocksBatchOp (..),
                          dbSerializeValue, getHeader)
-import           Pos.DB.Class (MonadBlockDBRead, getBlock) 
+import           Pos.DB.Class (MonadBlockDBRead, getBlock)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.Util (maybeThrow)
@@ -177,6 +176,7 @@ loadBlocksUpWhile
     -> m (OldestFirst [] Block)
 loadBlocksUpWhile = loadUpWhile getBlock
 
+{- TODO remove this CSL-2089 @volhovm
 -- | Produce blocks from a database (MonadBlockDBRead) beginning at a hash.
 -- Forward links are resolved after each block is yielded, and the source
 -- ends when that forward link does not determine another block.
@@ -196,6 +196,7 @@ blocksSourceFrom fromH = do
         case mNextH of
             Nothing -> pure ()
             Just nextH -> blocksSourceFrom nextH
+-}
 
 ----------------------------------------------------------------------------
 -- Initialization

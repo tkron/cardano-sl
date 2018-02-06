@@ -13,7 +13,7 @@ module Pos.Diffusion.Full.Block
 
 import           Universum
 
-import           Control.Exception.Safe (Exception (..))
+import           Control.Exception.Safe (Exception (..), tryAny)
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
@@ -42,7 +42,7 @@ import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
-import           Pos.Logic.Types (GetBlockHeadersError (..), Logic (..))
+import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
 import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
@@ -350,11 +350,9 @@ handleHeadersCommunication logic conv = do
                 -- This is how a peer requests a chain of headers.
                 -- NB: if the limiting hash is Nothing, getBlockHeaders will
                 -- substitute our current tip.
-                (c1:cxs, _)   -> do
-                    headers <- getBlockHeaders logic (c1:|cxs) mghTo
-                    case headers of
-                        Left (GetBlockHeadersError txt) -> pure (Left txt)
-                        Right hs                        -> pure (Right hs)
+                (c1:cxs, _)   ->
+                    fmap (first show) $
+                    tryAny $ getBlockHeaders logic (c1:|cxs) mghTo
             either onNoHeaders handleSuccess headers
   where
     -- retrieves header of the newest main block if there's any,
@@ -440,28 +438,23 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
         -- necessary: the streaming thing (probably a conduit) can determine
         -- whether the DB is malformed. Really, this listener has no business
         -- deciding that the database is malformed.
-        mHashes <- getBlockHeaders' logic mgbFrom mgbTo
-        case mHashes of
-            Right hashes -> do
-                logDebug $ sformat
-                    ("handleGetBlocks: started sending "%int%
-                     " blocks to "%build%" one-by-one: "%listJson)
-                    (length hashes) nodeId hashes
-                for_ hashes $ \hHash ->
-                    getBlock logic hHash >>= \case
-                        Just b -> send conv $
-                            MsgBlock b
-                        Nothing  -> do
-                            send conv $
-                                MsgNoBlock ("Couldn't retrieve block with hash " <> pretty hHash)
-                            failMalformed
-                logDebug "handleGetBlocks: blocks sending done"
-            _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
+        hashes <- getHashesRange logic mgbFrom mgbTo
+        logDebug $ sformat
+            ("handleGetBlocks: started sending "%int%
+             " blocks to "%build%" one-by-one: "%listJson)
+            (length hashes) nodeId hashes
+        for_ hashes $ \hHash ->
+            getBlock logic hHash >>= \case
+                Just b -> send conv $ MsgBlock b
+                Nothing  -> do
+                    send conv $ MsgNoBlock ("Couldn't retrieve block with hash " <> pretty hHash)
+                    failMalformed
+        logDebug "handleGetBlocks: blocks sending done"
   where
     -- See note above in the definition of handleGetBlocks [CSL-2148].
     failMalformed =
         throwM $ DBMalformed $
-        "handleGetBlocks: getBlockHeaders' returned header that doesn't " <>
+        "handleGetBlocks: getHashesRange returned header that doesn't " <>
         "have corresponding block in storage."
 
 ----------------------------------------------------------------------------
