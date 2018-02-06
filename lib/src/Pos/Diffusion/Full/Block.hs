@@ -21,15 +21,11 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import qualified Data.Text.Buildable as B
 import           Data.Time.Units (toMicroseconds)
--- TODO hopefully we can get rid of this import. It's needed for the
--- security workers stuff and peeking into some reader context which contains
--- it (part of WorkMode).
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
--- MsgGetHeaders Bi instance etc.
 import           Pos.Binary.Communication ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
@@ -37,10 +33,10 @@ import           Pos.Communication.Limits (HasAdoptedBlockVersionData, recvLimit
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, MsgType (..), NodeId, Origin (..),
-                                             waitForConversations, OutSpecs, ListenerSpec,
-                                             MkListeners (..), constantListeners)
-import           Pos.Core (HeaderHash, headerHash, prevBlockL, bvdSlotDuration)
+                                             EnqueueMsg, ListenerSpec, MkListeners (..),
+                                             MsgType (..), NodeId, Origin (..), OutSpecs,
+                                             constantListeners, waitForConversations)
+import           Pos.Core (HeaderHash, bvdSlotDuration, headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
@@ -49,13 +45,13 @@ import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionT
 import           Pos.Logic.Types (GetBlockHeadersError (..), Logic (..))
 import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
-import           Pos.Security.Params (AttackType (..), NodeAttackedError (..),
-                                      AttackTarget (..), SecurityParams (..))
+import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
+                                      SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, OldestFirst (..),
-                                  NE, nonEmptyNewestFirst)
-import           Pos.Util.TimeWarp (nodeIdToAddress, NetworkAddress)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
+                                  _NewestFirst)
 import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
+import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -338,7 +334,7 @@ handleHeadersCommunication
 handleHeadersCommunication logic conv = do
     whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
-        -- FIXME 
+        -- FIXME
         -- Diffusion layer is entirely capable of serving blocks even if the
         -- logic layer is in recovery mode.
         ifM (recoveryInProgress logic) onRecovery $ do
@@ -482,7 +478,8 @@ handleBlockHeaders
     -> OQ.OutboundQ pack NodeId Bucket
     -> Timer
     -> (ListenerSpec m, OutSpecs)
-handleBlockHeaders logic oq keepaliveTimer = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
+handleBlockHeaders logic oq keepaliveTimer =
+  listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
     -- The type of the messages we send is set to 'MsgGetHeaders' for
     -- protocol compatibility reasons only. We could use 'Void' here because
     -- we don't really send any messages.
@@ -492,7 +489,8 @@ handleBlockHeaders logic oq keepaliveTimer = listenerConv @MsgGetHeaders oq $ \_
         (MsgHeaders headers) -> do
             -- Reset the keepalive timer.
             -- slotDuration <- fromIntegral . toMicroseconds <$> getCurrentEpochSlotDuration
-            slotDuration <- fromIntegral . toMicroseconds . bvdSlotDuration <$> getAdoptedBVData logic
+            slotDuration <-
+                fromIntegral . toMicroseconds . bvdSlotDuration <$> getAdoptedBVData logic
             setTimerDuration keepaliveTimer $ 3 * slotDuration
             startTimer keepaliveTimer
             handleUnsolicitedHeaders logic (getNewestFirst headers) nodeId
