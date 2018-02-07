@@ -7,10 +7,10 @@ module Pos.Binary.Crypto () where
 
 import           Universum
 
-import           Control.Lens (_Left)
 import qualified Cardano.Crypto.Wallet as CC
-import qualified Crypto.Math.Edwards25519 as Ed25519
+import           Control.Lens (_Left)
 import           Crypto.Hash (digestFromByteString)
+import qualified Crypto.Math.Edwards25519 as Ed25519
 import qualified Crypto.PVSS as Pvss
 import qualified Crypto.SCRAPE as Scrape
 import qualified Crypto.Sign.Ed25519 as EdStandard
@@ -21,7 +21,6 @@ import           Formatting (int, sformat, (%))
 import           Pos.Binary.Class (AsBinary (..), Bi (..), Cons (..), Field (..), decodeBinary,
                                    deriveSimpleBi, encodeBinary, encodeListLen, enforceSize)
 import           Pos.Crypto.AsBinary (decShareBytes, encShareBytes, secretBytes, vssPublicKeyBytes)
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash (..), withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.Scrypt (EncryptedPass (..))
@@ -33,7 +32,7 @@ import           Pos.Crypto.Signing.Types.Redeem (RedeemPublicKey (..), RedeemSe
                                                   RedeemSignature (..))
 import           Pos.Crypto.Signing.Types.Safe (EncryptedSecretKey (..), PassPhrase,
                                                 passphraseLength)
-import           Pos.Util.Util (toCborError, cborError)
+import           Pos.Util.Util (cborError, toCborError)
 
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData
@@ -198,7 +197,7 @@ instance Bi a => Bi (Signed a) where
 
 deriving instance Typeable w => Bi (ProxyCert w)
 
-instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
+instance Bi w => Bi (ProxySecretKey w) where
     encode UnsafeProxySecretKey{..} =
         encodeListLen 4
         <> encode pskOmega
@@ -213,12 +212,13 @@ instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
         pskCert       <- decode
         pure UnsafeProxySecretKey {..}
 
-instance (Typeable a, Bi w, HasCryptoConfiguration) =>
+instance (Typeable a, Bi w) =>
          Bi (ProxySignature w a) where
-    encode ProxySignature{..} = encodeListLen 2
-                             <> encode psigPsk
-                             <> encode psigSig
-    decode = ProxySignature
+    encode UnsafeProxySignature{..}
+        = encodeListLen 2
+        <> encode psigPsk
+        <> encode psigSig
+    decode = UnsafeProxySignature
           <$  enforceSize "ProxySignature" 2
           <*> decode
           <*> decode

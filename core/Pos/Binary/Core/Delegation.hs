@@ -12,7 +12,6 @@ import           Pos.Binary.Core.Slotting ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..),
                                       ProxySKHeavy)
-import           Pos.Util.Verification (Unver)
 
 instance Bi HeavyDlgIndex where
     encode = encode . getHeavyDlgIndex
@@ -25,9 +24,9 @@ instance Bi LightDlgIndices where
 instance Bi DlgPayload where
     encode = encode . S.toList . getDlgPayload
     decode = do
-        (psks :: [Unver ProxySKHeavy]) <- decode
-        let asSet :: Unver (Set ProxySKHeavy)
-            asSet = S.fromList <$> (sequence psks :: Unver [ProxySKHeavy])
+        (psks :: [ProxySKHeavy]) <- decode
+        let asSet :: Set ProxySKHeavy
+            asSet = S.fromList psks
         when (length psks /= length (ordNub psks)) $
               fail "DlgPayload is not a set: it has duplicates"
-        pure $ UnsafeDlgPayload <$> asSet
+        pure $ DlgPayload asSet
