@@ -7147,12 +7147,13 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-crypto" = callPackage
         ({ mkDerivation, aeson, autoexporter, base, binary, bytestring
-         , cardano-crypto, cardano-sl-binary, cardano-sl-util, containers
-         , cpphs, cryptonite, cryptonite-openssl, data-default, ed25519
-         , formatting, generic-arbitrary, hashable, lens, memory, mtl, pvss
-         , QuickCheck, quickcheck-instances, reflection, safe-exceptions
-         , scrypt, serokell-util, stdenv, stm, text, text-format
-         , transformers, universum, unordered-containers, vector
+         , cardano-crypto, cardano-sl-binary, cardano-sl-util, cborg
+         , containers, cpphs, cryptonite, cryptonite-openssl, data-default
+         , ed25519, formatting, generic-arbitrary, hashable, lens, memory
+         , mtl, pvss, QuickCheck, quickcheck-instances, reflection
+         , safe-exceptions, scrypt, serokell-util, stdenv, stm, text
+         , text-format, transformers, universum, unordered-containers
+         , vector
          }:
          mkDerivation {
            pname = "cardano-sl-crypto";
@@ -7160,7 +7161,7 @@ inherit (pkgs) mesa;};
            src = ./../crypto;
            libraryHaskellDepends = [
              aeson autoexporter base binary bytestring cardano-crypto
-             cardano-sl-binary cardano-sl-util containers cryptonite
+             cardano-sl-binary cardano-sl-util cborg containers cryptonite
              cryptonite-openssl data-default ed25519 formatting
              generic-arbitrary hashable lens memory mtl pvss QuickCheck
              quickcheck-instances reflection safe-exceptions scrypt
