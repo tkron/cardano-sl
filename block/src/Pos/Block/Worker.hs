@@ -10,6 +10,7 @@ module Pos.Block.Worker
 import           Universum
 
 import           Control.Lens (ix)
+import           Data.List ((!!))
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
@@ -38,7 +39,10 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, S
 import           Pos.Core.Common (addressHash)
 import           Pos.Core.Configuration (HasConfiguration, criticalCQ, criticalCQBootstrap,
                                          nonCriticalCQ, nonCriticalCQBootstrap)
+import           Pos.Core.Configuration (generatedSecrets)
 import           Pos.Core.Context (getOurPublicKey)
+import           Pos.Core.Genesis (gsRichSecrets, rsPrimaryKey)
+import           Pos.Crypto (toPublic)
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
@@ -183,22 +187,26 @@ onNewSlotWhenLeader
     -> ProxySKBlockInfo
     -> Worker m
 onNewSlotWhenLeader slotId pske diffusion = do
-    let logReason =
-            sformat ("I have a right to create a block for the slot "%slotIdF%" ")
-                    slotId
-        logLeader = "because i'm a leader"
-        logCert (psk,_) =
-            sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
-    logInfoS $ logReason <> maybe logLeader logCert pske
-    nextSlotStart <- getSlotStartEmpatically (succ slotId)
-    currentTime <- currentTimeSlotting
-    let timeToCreate =
-            max currentTime (nextSlotStart - Timestamp networkDiameter)
-        Timestamp timeToWait = timeToCreate - currentTime
-    logInfoS $
-        sformat ("Waiting for "%shown%" before creating block") timeToWait
-    delay timeToWait
-    logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
+    let secrets = fromMaybe (error "Secrets unknown") generatedSecrets
+    ourPk <- getOurPublicKey
+    when (ourPk == toPublic (rsPrimaryKey $ gsRichSecrets secrets !! 0) ||
+          getSlotIndex (siSlot slotId) < 8 * fromIntegral blkSecurityParam) $ do
+        let logReason =
+                sformat ("I have a right to create a block for the slot "%slotIdF%" ")
+                        slotId
+            logLeader = "because i'm a leader"
+            logCert (psk,_) =
+                sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
+        logInfoS $ logReason <> maybe logLeader logCert pske
+        nextSlotStart <- getSlotStartEmpatically (succ slotId)
+        currentTime <- currentTimeSlotting
+        let timeToCreate =
+                max currentTime (nextSlotStart - Timestamp networkDiameter)
+            Timestamp timeToWait = timeToCreate - currentTime
+        logInfoS $
+            sformat ("Waiting for "%shown%" before creating block") timeToWait
+        delay timeToWait
+        logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
   where
     onNewSlotWhenLeaderDo = do
         logInfoS "It's time to create a block for current slot"
